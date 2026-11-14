@@ -1,0 +1,24 @@
+# Environments
+.venv/
+venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# Data (never commit the dataset)
+data/raw/*
+data/interim/*
+data/processed/*
+!data/raw/.gitkeep
+!data/interim/.gitkeep
+!data/processed/.gitkeep
+
+# Large results / caches
+results/*.npy
+results/*.pkl
+.cache/
+
+# Secrets and OS files
+.env
+*.key
+.DS_Store
