@@ -1,0 +1,8 @@
+README.md
+pyproject.toml
+src/uniguide/config.py
+src/uniguide.egg-info/PKG-INFO
+src/uniguide.egg-info/SOURCES.txt
+src/uniguide.egg-info/dependency_links.txt
+src/uniguide.egg-info/top_level.txt
+src/uniguide/models/base.py

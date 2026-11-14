@@ -1,0 +1,11 @@
+step,n_rows,n_users,n_courses
+raw,1454711,287808,604
+drop incomplete rows,1454558,287785,604
+keep known courses,1454558,287785,604
+drop generic users,1449143,283618,604
+parse dates,1449143,283618,604
+"drop duplicate (user, course)",505177,283618,604
+drop suspected homonyms,504952,283616,604
+"filter users>=5, courses>=50",138756,14792,422
+sample 30000 users,138756,14792,422
+re-filter after sampling,138756,14792,422

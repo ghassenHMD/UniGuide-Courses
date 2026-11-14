@@ -13,6 +13,8 @@ data:
   max_reviews_per_course_text: 50
   n_users_sample: 30000
   relevance_threshold: 4
+  max_user_reviews: 100            # users above this are treated as merged homonyms
+  generic_user_names: ["deleted a"]  # lowercase, without the "By " prefix
 
 split:
   test_ratio: 0.2
