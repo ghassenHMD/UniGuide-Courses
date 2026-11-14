@@ -1,0 +1,5 @@
+set,n_rows,n_users,n_courses
+train,81530,14756,380
+val,16983,14756,378
+test,24629,14756,380
+cold_course_test,15434,9514,42
