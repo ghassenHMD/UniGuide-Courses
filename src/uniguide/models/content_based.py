@@ -65,8 +65,7 @@ class ContentBasedRecommender(BaseRecommender):
 
         self._register_data(train, courses)
         self.item_index = {c: i for i, c in enumerate(self.catalog)}
-        self.item_vectors = self.vectorizer.fit_transform(courses["text"].fillna("").tolist())
-
+        self.item_vectors = self._build_item_vectors(courses)
         self._liked = {}
         for user_id, group in train.groupby("user_id"):
             liked = self._liked_arrays(dict(zip(group["course_id"], group["rating"])))
@@ -88,6 +87,10 @@ class ContentBasedRecommender(BaseRecommender):
         if not idx:
             return None
         return np.asarray(idx), np.asarray(weights, dtype=float)
+
+    def _build_item_vectors(self, courses: pd.DataFrame):
+        """Course vectors, rows L2-normalised. TF-IDF here; overridden by the embedding model."""
+        return self.vectorizer.fit_transform(courses["text"].fillna("").tolist())
 
     # -------------------------------------------------------------- scoring
     def _cosine_scores(self, idx: np.ndarray, weights: np.ndarray):
