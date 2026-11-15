@@ -25,5 +25,6 @@ def build_course_text(courses: pd.DataFrame, reviews: pd.DataFrame,
     joined = sampled.groupby("course_id")["review"].apply(" ".join)
     out = courses.copy()
     reviews_text = out["course_id"].map(joined).fillna("")
-    out["text"] = (out["name"] + " " + out["institution"] + " " + reviews_text).map(clean_text)
+    head = out["name"].fillna("") + " " + out["institution"].fillna("")
+    out["text"] = (head + " " + reviews_text).map(clean_text)
     return out

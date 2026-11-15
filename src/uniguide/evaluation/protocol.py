@@ -32,40 +32,32 @@ def evaluate_model(
         raise ValueError(f"test_data must contain {required}")
 
     relevant_data = test_data[test_data["is_relevant"] == True]
-    users = sorted(relevant_data["user_id"].unique())
+    relevant_by_user = relevant_data.groupby("user_id")["course_id"].apply(set)
+    users = sorted(relevant_by_user.index)
+    max_k = max(k_values)
 
     rows = []
 
     for user_id in users:
-        relevant_items = set(
-            relevant_data.loc[
-                relevant_data["user_id"] == user_id, "course_id"
-            ]
+        relevant_items = relevant_by_user[user_id]
+
+        # One call per user: the top-k list is the first k items of the top-max_k list.
+        recommendations = model.recommend(user_id, k=max_k, exclude_seen=True)
+        recommended_items = (
+            recommendations["course_id"].tolist()
+            if not recommendations.empty
+            else []
         )
 
         for k in k_values:
-            recommendations = model.recommend(
-                user_id, k=k, exclude_seen=True
-            )
-
-            recommended_items = (
-                recommendations["course_id"].tolist()
-                if not recommendations.empty
-                else []
-            )
-
             for metric_name, metric_function in METRICS.items():
-                value = metric_function(
-                    recommended_items, relevant_items, k
-                )
-
                 rows.append({
                     "method": model.name,
                     "experiment": experiment,
                     "seed": seed,
                     "k": k,
                     "metric": metric_name,
-                    "value": value,
+                    "value": metric_function(recommended_items, relevant_items, k),
                 })
 
     results = pd.DataFrame(

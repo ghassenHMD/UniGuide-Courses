@@ -26,3 +26,21 @@ split:
 evaluation:
   k_values: [5, 10]
   n_seeds: 3
+
+# Final model settings, shared by the notebooks and the Streamlit app.
+# Update them with the values selected on validation (notebooks 03-07).
+
+model:
+  content: tfidf                 # tfidf | embeddings | fusion
+  tfidf: {ngram_range: [1, 2], max_df: 0.5, rating_offset: 0.0}
+  name_weight: 0.5               # embeddings only
+  popularity_m_quantile: 0.99
+  cf_method: knn                 # knn | svd
+  cf_n_neighbors: 20
+  cf_n_components: 20
+  alpha: 0.5                     # CB weight for users with a long history
+  alpha_schedule: [[2, 0.9], [5, 0.7]]   # [max_history, alpha]; empty history -> popularity
+
+app:
+  demo_user_id: null             # fixed demo user chosen in advance (null = first suggested user)
+  default_k: 10

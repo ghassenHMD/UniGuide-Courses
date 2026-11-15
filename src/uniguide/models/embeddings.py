@@ -184,15 +184,24 @@ class ContentFusionRecommender(BaseRecommender):
             out[valid] = 0.0 if high == low else (scores[valid] - low) / (high - low)
         return out
 
-    def score(self, user_id: int, item_ids: list[str]) -> np.ndarray:
-        item_ids = list(item_ids)
-        if not item_ids:
-            return np.array([], dtype=float)
-        parts = np.vstack(
-            [self._minmax(np.asarray(m.score(user_id, item_ids), dtype=float)) for m in self.models]
-        )
+    def _fuse(self, raw_scores: list) -> np.ndarray:
+        """Normalise each model's scores, then average them with the (renormalised) weights."""
+        parts = np.vstack([self._minmax(np.asarray(r, dtype=float)) for r in raw_scores])
         available = np.isfinite(parts)
         w = self.weights[:, None] * available
         total = w.sum(axis=0)
         mixed = (np.where(available, parts, 0.0) * w).sum(axis=0) / np.where(total > 0, total, 1.0)
         return np.where(total > 0, mixed, np.nan)
+
+    def score(self, user_id: int, item_ids: list[str]) -> np.ndarray:
+        item_ids = list(item_ids)
+        if not item_ids:
+            return np.array([], dtype=float)
+        return self._fuse([m.score(user_id, item_ids) for m in self.models])
+
+    def score_from_ratings(self, ratings: dict[str, float], item_ids: list[str]) -> np.ndarray:
+        """Same as ``score`` for an ad-hoc history {course_id: rating} (new user in the demo)."""
+        item_ids = list(item_ids)
+        if not item_ids:
+            return np.array([], dtype=float)
+        return self._fuse([m.score_from_ratings(ratings, item_ids) for m in self.models])

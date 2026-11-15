@@ -223,52 +223,36 @@ class CollaborativeRecommender(BaseRecommender):
 
         return self.popularity_scores.get(item_id, np.nan)
 
-    def _knn_score(self, user_id, item_id):
-        """Predict a rating using similar items."""
+    def _predict_all(self, vector):
+        """Predicted rating of every trained item for one rating vector (0 = unrated).
 
-        item_idx = self.item_to_idx[item_id]
-        ratings = self.user_ratings.get(user_id, {})
+        kNN: similarity-weighted mean of the user's ratings over the neighbours of each item
+        (user mean when no neighbour was rated). SVD: reconstruction of the rating row.
+        """
+        rated = vector > 0
+        mean_rating = float(vector[rated].mean()) if rated.any() else 0.0
 
-        similarities = self.item_similarity.getrow(item_idx)
-
-        weighted_sum = 0.0
-        similarity_sum = 0.0
-
-        for neighbor_idx, similarity in zip(
-            similarities.indices,
-            similarities.data,
-        ):
-            neighbor_id = self.items[neighbor_idx]
-
-            if neighbor_id not in ratings:
-                continue
-
-            weighted_sum += similarity * ratings[neighbor_id]
-            similarity_sum += abs(similarity)
-
-        if similarity_sum == 0:
-            return float(np.mean(list(ratings.values())))
-
-        return float(weighted_sum / similarity_sum)
-
-    def _svd_score(self, user_id, item_id):
-        """Predict a rating using latent factors."""
+        if self.method == "knn":
+            if self.item_similarity is None:
+                return np.full(len(self.items), mean_rating)
+            numerator = self.item_similarity @ vector
+            denominator = self.item_similarity @ rated.astype(float)
+            safe = np.where(denominator > 0, denominator, 1.0)
+            return np.where(denominator > 0, numerator / safe, mean_rating)
 
         if self.svd is None:
-            return float(
-                np.mean(list(self.user_ratings[user_id].values()))
-            )
+            return np.full(len(self.items), mean_rating)
+        latent = self.svd.transform(csr_matrix(vector.reshape(1, -1)))
+        return (latent @ self.svd.components_).ravel()
 
-        user_idx = self.user_to_idx[user_id]
-        item_idx = self.item_to_idx[item_id]
-
-        user_vector = self.svd.transform(
-            self.matrix[user_idx]
-        )
-
-        item_vector = self.svd.components_[:, item_idx]
-
-        return float(user_vector[0] @ item_vector)
+    def _pick(self, values, item_ids):
+        """Values of the requested items (NaN for items the model was not trained on)."""
+        out = np.full(len(item_ids), np.nan)
+        for pos, item_id in enumerate(item_ids):
+            idx = self.item_to_idx.get(item_id)
+            if idx is not None:
+                out[pos] = values[idx]
+        return out
 
     def score(self, user_id, item_ids):
         """
@@ -277,29 +261,32 @@ class CollaborativeRecommender(BaseRecommender):
         Unknown or collaborative-untrained items return NaN.
         Unknown users use popularity fallback.
         """
+        item_ids = list(item_ids)
 
-        scores = []
+        if user_id not in self.user_to_idx or self.matrix is None or self.matrix.nnz == 0:
+            return np.array(
+                [self._popularity_score(i) if i in self.item_to_idx else np.nan for i in item_ids],
+                dtype=float,
+            )
 
-        for item_id in item_ids:
+        vector = self.matrix.getrow(self.user_to_idx[user_id]).toarray().ravel()
+        return self._pick(self._predict_all(vector), item_ids)
 
-            # Unknown or unavailable collaborative item.
-            if item_id not in self.item_to_idx:
-                scores.append(np.nan)
-                continue
+    def score_from_ratings(self, ratings, item_ids):
+        """Same as ``score`` for an ad-hoc history {course_id: rating} (e.g. a new user in the demo)."""
+        item_ids = list(item_ids)
+        vector = np.zeros(len(self.items))
+        for course_id, rating in ratings.items():
+            idx = self.item_to_idx.get(course_id)
+            if idx is not None:
+                vector[idx] = float(rating)
 
-            # Unknown users use popularity fallback.
-            if user_id not in self.user_to_idx:
-                scores.append(self._popularity_score(item_id))
-                continue
-
-            if self.method == "knn":
-                prediction = self._knn_score(user_id, item_id)
-            else:
-                prediction = self._svd_score(user_id, item_id)
-
-            scores.append(prediction)
-
-        return np.asarray(scores, dtype=float)
+        if not (vector > 0).any() or self.matrix is None or self.matrix.nnz == 0:
+            return np.array(
+                [self._popularity_score(i) if i in self.item_to_idx else np.nan for i in item_ids],
+                dtype=float,
+            )
+        return self._pick(self._predict_all(vector), item_ids)
 
     def predict(self, user_id, course_id):
         """Compatibility helper for predicting one course."""
