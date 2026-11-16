@@ -1,0 +1,7 @@
+method,k,hit_rate,ndcg,precision,recall
+hybrid,5,0.1494,0.0827,0.0311,0.1157
+hybrid,10,0.2056,0.0979,0.0218,0.1603
+hybrid_fixed_alpha,5,0.1494,0.0827,0.0311,0.1157
+hybrid_fixed_alpha,10,0.2056,0.0979,0.0218,0.1603
+hybrid_rrf,5,0.1006,0.0528,0.0206,0.0778
+hybrid_rrf,10,0.171,0.0711,0.0178,0.131

@@ -2,9 +2,15 @@
 
 Run from the repository root:  streamlit run app/streamlit_app.py
 """
+import sys
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import streamlit as st
+
+# Make `uniguide` importable even when the package is not pip-installed (e.g. Streamlit Cloud).
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from uniguide.config import get_path, load_config
 from uniguide.pipeline import System, build_system

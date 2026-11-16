@@ -106,3 +106,28 @@ def hit_rate_at_k(recommended: list[str], relevant: set[str], k: int) -> float:
     top_k = recommended[:k]
 
     return float(any(course in relevant for course in top_k))
+
+def rating_errors(model, test_data) -> dict:
+    """MAE and RMSE of a model whose ``score`` is a predicted rating (e.g. collaborative).
+
+    Only observed test ratings that the model can score are used; the number of scored
+    interactions and the coverage (share of test interactions scored) are returned too.
+    The hybrid score lives in [0, 1], not on the rating scale, so it cannot be used here.
+    """
+    import numpy as np
+
+    errors = []
+    for user_id, group in test_data.groupby("user_id"):
+        predicted = np.asarray(model.score(user_id, group["course_id"].tolist()), dtype=float)
+        valid = np.isfinite(predicted)
+        errors.extend((predicted[valid] - group["rating"].to_numpy(dtype=float)[valid]).tolist())
+
+    errors = np.asarray(errors, dtype=float)
+    if errors.size == 0:
+        return {"mae": float("nan"), "rmse": float("nan"), "n_scored": 0, "coverage": 0.0}
+    return {
+        "mae": float(np.abs(errors).mean()),
+        "rmse": float(np.sqrt((errors ** 2).mean())),
+        "n_scored": int(errors.size),
+        "coverage": float(errors.size / len(test_data)),
+    }

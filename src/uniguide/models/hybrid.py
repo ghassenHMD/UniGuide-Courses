@@ -185,3 +185,45 @@ class HybridRecommender(BaseRecommender):
             "score", ascending=False, kind="mergesort"
         )
         return results.head(k).reset_index(drop=True)
+
+class RRFHybridRecommender(HybridRecommender):
+    """Reciprocal Rank Fusion variant: combines the *ranks* of CB and CF instead of their scores.
+
+    ``Score(u, i) = 1 / (rrf_k + rank_CB(i)) + 1 / (rrf_k + rank_CF(i))`` over the candidate
+    courses. A course missing from one ranking (e.g. a new course without CF score) only gets the
+    term of the other one. Users without history still get popularity.
+    """
+
+    name = "hybrid_rrf"
+
+    def __init__(self, content_model, collaborative_model, rrf_k=60):
+        super().__init__(content_model, collaborative_model, alpha=0.5)
+        if rrf_k <= 0:
+            raise ValueError("rrf_k must be positive")
+        self.rrf_k = rrf_k
+
+    def _reciprocal_ranks(self, raw, known):
+        raw = np.where(known, np.asarray(raw, dtype=float), np.nan)
+        ranks = pd.Series(raw).rank(ascending=False, method="first").to_numpy()
+        return 1.0 / (self.rrf_k + ranks)          # NaN rank -> NaN
+
+    def _combine(self, item_ids, cb_raw, cf_raw, n_history):
+        if len(cb_raw) != len(item_ids) or len(cf_raw) != len(item_ids):
+            raise ValueError("A component model returned an invalid number of scores")
+        known = np.array([i in self._catalog_set for i in item_ids], dtype=bool)
+        cb = self._reciprocal_ranks(cb_raw, known)
+        cf = self._reciprocal_ranks(cf_raw, known)
+        cb_ok, cf_ok = np.isfinite(cb), np.isfinite(cf)
+
+        score = np.where(cb_ok, np.nan_to_num(cb), 0.0) + np.where(cf_ok, np.nan_to_num(cf), 0.0)
+        score = np.where(cb_ok | cf_ok, score, np.nan)
+        mode = np.select(
+            [cb_ok & cf_ok, cb_ok, cf_ok],
+            ["hybrid", "content_only", "collaborative_only"],
+            default="unscorable",
+        )
+        return pd.DataFrame({
+            "course_id": item_ids, "cb": cb, "cf": cf,
+            "w_cb": cb_ok.astype(float), "w_cf": cf_ok.astype(float),   # reciprocal ranks already weighted
+            "score": score, "mode": mode,
+        })[self.COLUMNS]

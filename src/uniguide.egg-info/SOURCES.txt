@@ -30,6 +30,7 @@ tests/test_collaborative.py
 tests/test_content_based.py
 tests/test_embeddings.py
 tests/test_evaluation.py
+tests/test_experiments.py
 tests/test_explainer.py
 tests/test_hybrid.py
 tests/test_popularity.py
